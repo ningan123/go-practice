@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"runtime"
 )  
   
 func serverIPHandler(w http.ResponseWriter, r *http.Request) {  
@@ -55,14 +56,27 @@ func serverIPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 }  
+ 
+func serverArchHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("GOARCH:", runtime.GOARCH)
+	fmt.Fprintf(w, "GOARCH: %s\n", runtime.GOARCH)  
+}
+func main() {  	
+	// 第一个HTTP服务  
+	mux1 := http.NewServeMux()  
+	mux1.HandleFunc("/", serverIPHandler)  
+	go func() {  
+		log.Println("Starting first server on port 8080")  
+		if err := http.ListenAndServe(":8080", mux1); err != nil {  
+			log.Fatal(err)  
+		}  
+	}()  
   
-func main() {  
-	http.HandleFunc("/", serverIPHandler)  
-  
-	// 监听并启动HTTP服务器  
-	port := ":8080"  
-	log.Printf("Starting HTTP server on port %s", port)  
-	if err := http.ListenAndServe(port, nil); err != nil {  
+	// 第二个HTTP服务  
+	mux2 := http.NewServeMux()  
+	mux2.HandleFunc("/", serverArchHandler)  
+	log.Println("Starting second server on port 8081")  
+	if err := http.ListenAndServe(":8081", mux2); err != nil {  
 		log.Fatal(err)  
-	}  
+	} 
 }
