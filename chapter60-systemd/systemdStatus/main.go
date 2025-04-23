@@ -55,14 +55,17 @@ func monitorAllServicesState() error {
         if activeState, exists := changedProps["ActiveState"]; exists {
             state, ok := activeState.Value().(string)
             if ok {
-                klog.InfoS("Service state changed", "service", serviceName, "ActiveState", state)
+                // 获取服务的 PID
+                pid := getServicePID(conn, signal.Path)
+
+                klog.InfoS("Service state changed", "service", serviceName, "ActiveState", state, "PID", pid)
 
                 // 根据状态变化执行不同的处理逻辑
                 switch state {
                 case "active":
-                    handleStart(serviceName)
+                    handleStart(serviceName, pid)
                 case "inactive":
-                    handleStop(serviceName)
+                    handleStop(serviceName, pid)
                 }
             }
         }
@@ -71,17 +74,35 @@ func monitorAllServicesState() error {
         if subState, exists := changedProps["SubState"]; exists {
             state, ok := subState.Value().(string)
             if ok {
-                klog.InfoS("Service sub-state changed", "service", serviceName, "SubState", state)
+                // 获取服务的 PID
+                pid := getServicePID(conn, signal.Path)
+
+                klog.InfoS("Service sub-state changed", "service", serviceName, "SubState", state, "PID", pid)
 
                 // 检查是否是重启状态
                 if state == "auto-restart" {
-                    handleRestart(serviceName)
+                    handleRestart(serviceName, pid)
                 }
             }
         }
     }
 
     return nil
+}
+
+// getServicePID 获取服务对应的主进程 PID
+func getServicePID(conn *dbus.Conn, path dbus.ObjectPath) uint32 {
+    unit := conn.Object("org.freedesktop.systemd1", path)
+
+    var pid uint32
+    err := unit.Call("org.freedesktop.DBus.Properties.Get", 0,
+        "org.freedesktop.systemd1.Service", "MainPID").Store(&pid)
+    if err != nil {
+        klog.ErrorS(err, "Failed to get MainPID", "path", path)
+        return 0
+    }
+
+    return pid
 }
 
 // extractServiceName 从 D-Bus 对象路径中提取服务名称
@@ -94,20 +115,20 @@ func extractServiceName(path string) string {
 }
 
 // handleStart 处理服务启动事件
-func handleStart(serviceName string) {
-    klog.InfoS("Handling start event", "service", serviceName)
+func handleStart(serviceName string, pid uint32) {
+    klog.InfoS("Handling start event", "service", serviceName, "PID", pid)
     // 在这里添加启动服务的处理逻辑
 }
 
 // handleStop 处理服务停止事件
-func handleStop(serviceName string) {
-    klog.InfoS("Handling stop event", "service", serviceName)
+func handleStop(serviceName string, pid uint32) {
+    klog.InfoS("Handling stop event", "service", serviceName, "PID", pid)
     // 在这里添加停止服务的处理逻辑
 }
 
 // handleRestart 处理服务重启事件
-func handleRestart(serviceName string) {
-    klog.InfoS("Handling restart event", "service", serviceName)
+func handleRestart(serviceName string, pid uint32) {
+    klog.InfoS("Handling restart event", "service", serviceName, "PID", pid)
     // 在这里添加重启服务的处理逻辑
 }
 
